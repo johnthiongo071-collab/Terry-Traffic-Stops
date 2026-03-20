@@ -54,6 +54,21 @@ Key preprocessing steps:
 
 ---
 
+## Univariate and Bivariate Analysis
+
+Before modelling, three exploratory plots were produced to understand the distribution of key variables and their relationship with the target outcome.
+
+### 1. Stop Outcomes by Subject Race
+A count plot comparing arrest vs. non-arrest outcomes broken down by the subject's perceived race. This chart reveals whether certain racial groups are disproportionately represented among stops that end in arrest — a central question for assessing bias in the dataset. Across all racial groups, non-arrest outcomes dominate, but the relative arrest rate varies, making perceived race a potentially significant predictor.
+
+### 2. Weapon Presence by Time of Day
+A count plot showing how often a weapon was present during stops across four time-of-day buckets (Morning, Afternoon, Evening, Late Night). This bivariate view explores whether weapon-involved stops cluster at particular times — for example, late-night stops may carry a higher rate of weapon presence, which could interact with both arrest likelihood and officer decision-making.
+
+### 3. Distribution of Officer Year of Birth
+A histogram with a KDE curve showing the spread of officer year of birth (restricted to 1950–2002, reflecting the active workforce). This univariate chart gives a sense of the age profile of officers in the dataset — a mostly younger-to-mid-career workforce — and flags whether officer experience (proxied by age) may be worth investigating as a factor in stop outcomes.
+
+---
+
 ## Modelling
 
 ### Model 1: Baseline Logistic Regression
@@ -124,23 +139,6 @@ To assess the stability of the Decision Tree model, **5-fold cross-validation** 
 ### Top 10 Features (Decision Tree)
 
 Feature importance analysis from the Decision Tree revealed that a small set of variables drives most of the predictive power for arrest outcomes. The top features are visualised in the notebook and centre primarily on **weapon presence** and **subject/officer demographic variables**.
-
----
-
-## Presentation
-
-The file `Terry_Traffic_Stops_Presentation.pdf` is a 6-slide visual stakeholder presentation generated from the data and results in `traffic.ipynb`. It is designed for audiences including law enforcement leadership, policymakers, and civil rights organisations, and prioritises charts and plain-language summaries over technical detail.
-
-### Slide-by-Slide Summary
-
-| Slide | Title | Content |
-|---|---|---|
-| 1 | **Title** | Project overview with four headline statistics: 66,786 total stops, 24% arrest rate, 9 years of data, 23 features |
-| 2 | **Business & Data Understanding** | The core problem, five stakeholder groups, dataset facts, and a donut chart showing the 76/24 class imbalance |
-| 3 | **Data Preparation** | Five-step pipeline (drop columns → binary target → feature engineering → encode/scale → SMOTE) and feature group breakdown |
-| 4 | **Modelling** | Side-by-side comparison of Logistic Regression and Decision Tree, with parameters and an explanation of why recall is the right metric |
-| 5 | **Evaluation** | Recall comparison chart (73% DT vs 59% LR), all 5 cross-validation fold scores, and a ranked feature importance bar chart |
-| 6 | **Recommendations** | Four action cards covering ethical deployment, bias remediation, data quality improvements, and ongoing model monitoring |
 
 ---
 

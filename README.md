@@ -1,169 +1,152 @@
-# Terry Stops — Predicting Arrest Outcomes with Machine Learning
+# Terry Stops — Predictive Modeling of Stop Outcomes
 
-## Overview
+## Business Understanding
 
-This project investigates patterns in police-reported Terry Stops in Seattle, using machine learning to predict stop outcomes — specifically, whether a stop results in an arrest. Inspired by the legal precedent established in *Terry v. Ohio*, which introduced the concept of "reasonable suspicion," this analysis explores how historically grounded policing data can — and cannot — be used responsibly in algorithmic decision-making contexts.
+In the modern digital era (circa 2026), the rapid expansion of machine learning has significantly influenced how surveillance is conducted. This project is inspired by the legal precedent established in *Terry v. Ohio*, which introduced the concept of "reasonable suspicion" in stop-and-frisk practices. While originally rooted in human judgment, similar decision-making processes are now being translated into algorithmic systems. This raises important questions about how historical data, when used to train machine learning models, may shape modern surveillance outcomes.
 
-The work is aimed at stakeholders including **law enforcement agencies**, **government and policymakers**, **technology companies**, **civil rights organizations**, and the **general public** — all of whom have a stake in understanding how perceived demographics and contextual factors shape stop outcomes.
+**Business Objective:** Explore the impact of using historically grounded policing datasets to train machine learning models in a digital surveillance context.
+
+**Key Stakeholders:**
+- Law Enforcement Agencies
+- Government & Policymakers
+- Technology Companies
+- Civil Rights Organizations
+- General Public
+
+**Business Problem:**
+- **Pattern Identification:** Analyzing variables used to justify "reasonable suspicion" decisions.
+- **Predictive Modeling:** Training classifiers to predict stop outcomes based on observed variables like officer gender, subject perceived race, and stop location.
 
 ---
 
-## Business and Data Understanding
+## Data Understanding
 
-### Stakeholder Audience
+The dataset is the **Terry Stops dataset**, provided by the City of Seattle via the Seattle Police Department (SPD) Open Data portal. It contains records of police-reported stops under the legal precedent of *Terry v. Ohio*.
 
-| Stakeholder | Interest |
-|---|---|
-| Law Enforcement Agencies | Improving consistency and efficiency in decision-making |
-| Government & Policymakers | Regulating surveillance tools and ensuring legal alignment |
-| Technology Companies | Building fair, accountable ML systems |
-| Civil Rights Organizations | Evaluating potential bias in algorithmic outcomes |
-| General Public | Understanding how automated decisions may affect them |
+- **Source:** Seattle Police Department
+- **Rows:** 66,800+ (each representing a unique stop)
+- **Scope:** Records from 2017 through early 2026
+- **Update Frequency:** Daily (last updated March 16, 2026)
 
-The core business objective is to **identify which variables most strongly predict stop outcomes** — particularly arrests — and to surface any patterns of bias embedded in historical policing data.
+**Target Variable:** `Stop Resolution` — binarized as `1 = Arrest`, `0 = No Arrest`
 
-### Dataset
+**Key Predictor Variables:**
+- Subject Demographics: Age Group, Perceived Race, Perceived Gender
+- Officer Demographics: Race, Gender, Year of Birth
+- Contextual Data: Precinct, Sector, Beat, Occurred Date
+- Stop Specifics: Weapon Type, Arrest Flag, Frisk Flag, Initial Call Type
 
-**Source:** Seattle Police Department Open Data Portal  
-**Publisher:** City of Seattle  
-**Update frequency:** Daily (last updated March 16, 2026)  
-**Size:** 66,786 rows, each representing a unique Terry Stop  
-**Scope:** Records span 2017 through early 2026, including officer-reported demographics and Computer-Aided Dispatch (CAD) system details.
+> **Note on Data Ethics:** Because this data relies on "perceived" demographics reported by officers, the analysis focuses on the impact of these perceptions and potential biases within the recorded data rather than an objective demographic census.
 
-### Target Variable
-
-**Stop Resolution** — the final outcome of a stop (e.g., *Arrest*, *Field Contact*, *Offense Report*). This was binarized:
-- `1` = Arrest
-- `0` = All other outcomes
-
-The dataset has a **class imbalance**: ~50,861 non-arrest stops vs. ~15,925 arrests (~3:1 ratio). This was addressed during modeling using SMOTE (see Modeling section).
-
-### Features Used
-
-| Category | Features |
-|---|---|
-| Subject Demographics | Age Group, Perceived Race, Perceived Gender |
-| Officer Demographics | Race, Gender, Year of Birth |
-| Context | Time of Day (bucketed from stop hour), Weapon Type (binary: present or not) |
-
-> **Note on Ethics:** Because the dataset records "perceived" demographics as reported by officers, the analysis focuses on *how those perceptions influence outcomes* rather than treating them as objective ground truth. Features like Subject Perceived Race should be interpreted with caution — they reflect officer perception, not verified identity.
-
-> **Metrics Justification:** In the context of the Terry Stops predictive model, we prioritize recall over precision to minimize the risk of "false negatives." ​In this specific scenario, failing to identify a stop that results in a significant outcome (like an arrest or a weapon recovery) is considered a more costly error than incorrectly flagging a stop that does not. By optimizing for recall, the model ensures that the majority of high-stakes interactions are captured for review, acknowledging that a higher rate of "false alarms" (lower precision) is a secondary concern compared to the potential safety or administrative oversight caused by missing an actual arrest.
 ---
 
-## Modeling
+## Data Preparation
 
-Three models were built and compared:
+Key preprocessing steps:
 
-**Model 1 — Baseline Logistic Regression**  
-A standard logistic regression with no class imbalance handling. Used as a reference point.
+1. Dropped non-informative or redundant columns (e.g., IDs, raw date strings, administrative columns).
+2. Created a **binary target** column: `1` if `Stop Resolution == 'Arrest'`, `0` otherwise.
+3. Created a **`weapon_binary`** feature: `1` if a weapon was present, `0` otherwise.
+4. Fixed a data entry error in `Subject Age Group` (`'17-Jan'` → `'1 - 17'`).
+5. Filled remaining NaN values with `'Unknown'` for categorical columns.
+6. Extracted **Time of Day** buckets (Morning, Afternoon, Evening, Late Night) from `Occurred Date`.
+7. Applied **OneHotEncoding** to categorical features and **StandardScaler** to numerical features via a `ColumnTransformer`.
 
-**Model 2 — Tuned Logistic Regression (SMOTE)**  
-To address the ~3:1 class imbalance, SMOTE (Synthetic Minority Over-sampling Technique) was applied to the training data, synthetically generating additional arrest examples until both classes were balanced. The logistic regression was then trained on this resampled dataset. This improves recall for the minority class (arrests) compared to the baseline.
+---
 
-**Model 3 — Decision Tree (Balanced, Entropy)**  
-A Decision Tree classifier with `max_depth=5`, `class_weight='balanced'`, and entropy criterion. Provides interpretable splits and explicit feature importances.
+## Modelling
 
-### Feature Engineering
+### Model 1: Baseline Logistic Regression
+A standard logistic regression trained on the transformed training data without any class imbalance correction.
 
-Stop timestamps were converted into **time-of-day buckets** rather than raw hour values (0–23):
+### Model 2: Tuned Logistic Regression (SMOTE)
+The target class is imbalanced — approximately **76% No Arrest** vs. **24% Arrest**. To address this, **SMOTE (Synthetic Minority Oversampling Technique)** was applied to the training data before fitting the logistic regression.
 
-| Bucket | Hours |
-|---|---|
-| Morning | 05:00 – 11:59 |
-| Afternoon | 12:00 – 16:59 |
-| Evening | 17:00 – 20:59 |
-| Late Night | 21:00 – 04:59 |
-
-This avoids treating hour as a continuous number (which implies hour 23 is "close to" hour 22 but "far from" hour 1, even though midnight stops share behavioral patterns across 23:00 and 01:00).
-
-All models were trained on 70% of the data and evaluated on a 30% held-out test set. Preprocessing included:
-- **One-Hot Encoding** for all categorical features (age group, officer/subject demographics, time of day)
-- **Standard Scaling** for numerical features (Officer YOB)
+### Model 3: Decision Tree (SMOTE)
+A Decision Tree Classifier (`max_depth=5`, `class_weight='balanced'`, `criterion='entropy'`) trained on the SMOTE-resampled data.
 
 ---
 
 ## Evaluation
 
-### Classification Performance (Test Set)
+### Why Recall Over Precision?
 
-| Metric | Logistic Regression (SMOTE) | Decision Tree (Balanced) |
+In this context, **recall is the primary evaluation metric** rather than precision. This is a deliberate, domain-informed choice:
+
+- A **false negative** (predicting "No Arrest" when an arrest actually occurs) means the model fails to flag a high-risk stop — the more serious error in a surveillance and policing context, as it could mean patterns of harmful stops go undetected.
+- A **false positive** (predicting "Arrest" when no arrest occurs) is less costly — it flags a stop for review that turns out to be routine.
+
+In other words, it is more acceptable for the model to over-predict arrests than to systematically miss them. Precision measures how many predicted arrests were real; recall measures how many real arrests the model actually caught. For this problem, catching real arrests matters more than avoiding false alarms.
+
+### Classification Reports
+
+| Metric | Logistic Regression (Tuned) | Decision Tree |
 |---|---|---|
-| Overall Accuracy | 56% | 50% |
-| Arrest Recall | 60% | 67% |
-| Non-Arrest Recall | 55% | 45% |
-| Arrest Precision | 29% | 27% |
-| Arrest F1 | 0.39 | 0.39 |
+| Accuracy | 0.56 | 0.45 |
+| Precision (Arrest) | 0.29 | 0.26 |
+| Recall (Arrest) | 0.59 | 0.73 |
+| F1-Score (Arrest) | 0.39 | 0.39 |
 
-> Both models achieve similar F1 scores for arrests (~0.39). The Decision Tree captures more true arrests (higher recall) but at the cost of more false positives. For a policing context where **missing a true arrest is the higher-stakes error**, the Decision Tree's higher recall may be preferable — but this trade-off requires careful domain judgment.
+### Recommended Model: Decision Tree
 
-### ROC-AUC Scores
+The **Decision Tree is the preferred model** for this task. Although its overall accuracy (0.45) is lower than the Logistic Regression (0.56), accuracy is a misleading metric on an imbalanced dataset — a model that simply predicted "No Arrest" every time would score ~76% accuracy while being completely useless.
 
-AUC scores are read from the ROC curve plot in the notebook. Both models outperform random chance (AUC = 0.50), but neither achieves strong discriminative power.
+On the metric that matters most — **recall for the Arrest class** — the Decision Tree significantly outperforms Logistic Regression (**0.73 vs. 0.59**), correctly identifying nearly three-quarters of all actual arrests. The AUC scores are comparable (0.62 vs. 0.63), confirming that both models have similar overall discriminatory power, but the Decision Tree converts that power into better detection of the minority class. Cross-validation further supports this, with a mean recall of 0.75 across folds.
 
-|Model|AUC Score|
-|Logistic Regression| 0.61|
-|Decision Tree| 0.58|
+### AUC Scores
 
+The following table summarises the **Area Under the ROC Curve (AUC)** for each model evaluated on the held-out test set. A higher AUC indicates better ability to distinguish between arrest and non-arrest outcomes across all classification thresholds.
 
-### Top Predictive Features (Decision Tree)
+| Model | AUC Score |
+|---|---|
+| Logistic Regression (Tuned) | 0.63 |
+| Decision Tree | 0.62 |
+| Random Guess (Baseline) | 0.50 |
 
-Feature importances from the decision tree show that **time of day** and **officer year of birth** are among the strongest predictors, followed by perceived race categories. This raises important questions about how structural factors (when stops occur, which officers conduct them) interact with outcomes — and whether perceived race is serving as a proxy for those structural factors.
+> Both models outperform the random baseline. The AUC scores are nearly identical, meaning the models have comparable overall discriminatory power — the key differentiator is how that power translates into recall on the Arrest class, where the Decision Tree has a clear advantage.
 
----
+### Cross-Validation (Decision Tree)
 
-## Conclusion
+To assess the stability of the Decision Tree model, **5-fold cross-validation** was performed on the SMOTE-resampled training data using **Recall** as the scoring metric (prioritising the correct identification of arrest outcomes).
 
-Both models show **limited predictive power**. This suggests that the variables available — including perceived demographics — do not strongly or reliably predict arrest outcomes on their own. The fact that **perceived race** still appears among the top decision tree features is significant and warrants further fairness analysis.
+| Fold | Recall Score |
+|---|---|
+| 1 | 0.633 |
+| 2 | 0.755 |
+| 3 | 0.779 |
+| 4 | 0.781 |
+| 5 | 0.784 |
+| **Mean** | **0.75** |
+| **Std Dev** | **0.06** |
 
-Key takeaways:
+> The mean recall of **0.75** indicates the model correctly identifies roughly 3 in 4 arrest cases on average. The standard deviation of **0.06** suggests moderate variability across folds, with Fold 1 notably lower — this may reflect temporal patterns in the data given the train/test split.
 
-- Class imbalance (~3:1) was a significant challenge; SMOTE improved arrest recall from baseline but overall accuracy remains modest
-- Converting stop hour to time-of-day buckets (Morning / Afternoon / Evening / Late Night) produced a more meaningful temporal feature than raw hour values
-- The modest performance of these models suggests arrest decisions are complex and not easily reducible to the recorded features — or that important factors are absent from the dataset
-- **Perceived race appearing as a top feature is a red flag**, not a justification for its use — it likely reflects historical policing patterns rather than causal factors
-- Any deployment of ML in policing contexts must grapple seriously with fairness, transparency, and the risk of amplifying historical bias at scale
+### Top 10 Features (Decision Tree)
 
----
-
-## Limitations
-
-- **Perceived demographics are not objective:** All demographic features are officer-reported perceptions, introducing a layer of subjectivity and potential bias into every model trained on this data
-- **These models should not be used for real-world decision-making.** Performance is too low, and the features carry significant fairness risks
-- **Dropped features may matter:** Precinct, sector, beat, and call type were excluded from modeling. Location and call context could be meaningful predictors and deserve exploration in future iterations
-- **No cross-validation was used:** A single 70/30 train-test split was used; results may vary with different random seeds. Cross-validation would provide more reliable performance estimates
-- **AUC scores are approximate:** The ROC curve is plotted from the notebook but exact AUC values should be read directly from the chart output
+Feature importance analysis from the Decision Tree revealed that a small set of variables drives most of the predictive power for arrest outcomes. The top features are visualised in the notebook and centre primarily on **weapon presence** and **subject/officer demographic variables**.
 
 ---
 
-## Recommendations for Future Work
+## Presentation
 
-- **Run a fairness audit:** Calculate precision and recall broken down by Subject Perceived Race to surface whether model performance is uneven across demographic groups
-- **Try stronger models:** Random Forest or XGBoost typically outperform single decision trees and logistic regression on tabular classification tasks
-- **Use cross-validation:** Replace the single train/test split with k-fold cross-validation for more robust evaluation
-- **Re-introduce location features:** Precinct, sector, and beat were dropped early — these may carry genuine predictive signal worth exploring
-- **Add a calibration curve:** Check whether predicted probabilities reflect real-world likelihoods, especially important if probability scores are ever used downstream
-- **Frame evaluation around recall:** For an arrest prediction task, missing a true arrest is the higher-cost error — optimize and report metrics accordingly
+The file `Terry_Traffic_Stops_Presentation.pdf` is a 6-slide visual stakeholder presentation generated from the data and results in `traffic.ipynb`. It is designed for audiences including law enforcement leadership, policymakers, and civil rights organisations, and prioritises charts and plain-language summaries over technical detail.
+
+### Slide-by-Slide Summary
+
+| Slide | Title | Content |
+|---|---|---|
+| 1 | **Title** | Project overview with four headline statistics: 66,786 total stops, 24% arrest rate, 9 years of data, 23 features |
+| 2 | **Business & Data Understanding** | The core problem, five stakeholder groups, dataset facts, and a donut chart showing the 76/24 class imbalance |
+| 3 | **Data Preparation** | Five-step pipeline (drop columns → binary target → feature engineering → encode/scale → SMOTE) and feature group breakdown |
+| 4 | **Modelling** | Side-by-side comparison of Logistic Regression and Decision Tree, with parameters and an explanation of why recall is the right metric |
+| 5 | **Evaluation** | Recall comparison chart (73% DT vs 59% LR), all 5 cross-validation fold scores, and a ranked feature importance bar chart |
+| 6 | **Recommendations** | Four action cards covering ethical deployment, bias remediation, data quality improvements, and ongoing model monitoring |
 
 ---
 
-## Reproducibility
+## Key Takeaways
 
-**Libraries required:**
-```
-pandas
-numpy
-scikit-learn
-imbalanced-learn   # for SMOTE
-matplotlib
-seaborn
-```
-
-Install with:
-```bash
-pip install pandas numpy scikit-learn imbalanced-learn matplotlib seaborn
-```
-
-**Data:** `Terry_Stops.csv` — available from the [City of Seattle Open Data Portal](https://data.seattle.gov/)
-
-Run all cells in order from top to bottom in `traffic.ipynb`.
+- Class imbalance significantly impacts model performance; SMOTE helps boost recall for the minority class (Arrest).
+- Both models achieve moderate discriminatory ability (AUC ~0.62–0.63), suggesting that the available features have limited predictive power for arrest outcomes.
+- Weapon presence and perceived subject demographics are among the strongest predictors of arrest — a finding with important ethical implications regarding algorithmic bias in policing systems.
+- Cross-validation confirms that the Decision Tree model is reasonably stable, though there is fold-to-fold variation that warrants further investigation.
